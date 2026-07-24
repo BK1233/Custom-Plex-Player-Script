@@ -11,6 +11,7 @@ import sys
 
 # Import our modules
 from plex_rtx_player import PlexRTXPlayer
+import plex_rtx_gui
 from plex_rtx_gui import PlexRTXAPI
 
 
@@ -111,7 +112,9 @@ class TestPlexRTXPlayer(unittest.TestCase):
 class TestPlexRTXGUI(unittest.TestCase):
     def setUp(self):
         self.player_mock = MagicMock(spec=PlexRTXPlayer)
-        self.api = PlexRTXAPI(self.player_mock)
+        # Setup global player inside the gui module for testing
+        plex_rtx_gui._GLOBAL_PLAYER = self.player_mock
+        self.api = PlexRTXAPI()
 
     def test_parse_plex_url_hash_fragment(self):
         """Test extraction of metadata key and machine identifier from SPA hash URL."""
