@@ -77,7 +77,99 @@ if ($LastExitCode -ne 0) {
     Exit 1
 }
 
-# 5. Launch the application
+# 5. Bootstrap mpv.exe if missing
+$mpvInCwd = Test-Path "$Home\PlexRTXPlayer\mpv.exe"
+$mpvInPath = Get-Command "mpv.exe" -ErrorAction SilentlyContinue
+
+if (-not $mpvInCwd -and -not $mpvInPath) {
+    $standardPaths = @(
+        "C:\Program Files\mpv\mpv.exe",
+        "C:\Program Files (x86)\mpv\mpv.exe",
+        "C:\Program Files\mpv-player\mpv.exe",
+        "C:\Program Files (x86)\mpv-player\mpv.exe",
+        "C:\mpv\mpv.exe",
+        "$env:LOCALAPPDATA\Programs\mpv\mpv.exe",
+        "$env:LOCALAPPDATA\Programs\mpv-player\mpv.exe"
+    )
+
+    $foundStandard = $false
+    foreach ($path in $standardPaths) {
+        if (Test-Path $path) {
+            $foundStandard = $true
+            break
+        }
+    }
+
+    if (-not $foundStandard) {
+        Write-Host "mpv.exe was not detected in system PATH or standard folders." -ForegroundColor Yellow
+        Write-Host "Attempting to install modern MPV automatically via Windows Package Manager (winget)..." -ForegroundColor Yellow
+
+        $wingetInstalled = $false
+        try {
+            & winget --version >$null 2>&1
+            if ($LastExitCode -eq 0) {
+                Write-Host "winget detected. Installing MPV..." -ForegroundColor Gray
+                & winget install -e --id mpv.mpv --silent --accept-source-agreements --accept-package-agreements
+                if ($LastExitCode -eq 0) {
+                    Write-Host "[OK] MPV has been successfully installed via winget!" -ForegroundColor Green
+                    $wingetInstalled = $true
+                }
+            }
+        } catch {
+            Write-Host "[WARNING] Automated winget installation failed: $_" -ForegroundColor Yellow
+        }
+
+        if (-not $wingetInstalled) {
+            Write-Host "Falling back to downloading precompiled binary..." -ForegroundColor Yellow
+            try {
+                $releasesUrl = "https://api.github.com/repos/zhongfly/mpv-winbuild/releases/latest"
+                $releaseData = Invoke-RestMethod -Uri $releasesUrl -Headers @{"User-Agent"="Mozilla/5.0"}
+
+                $asset = $releaseData.assets | Where-Object { $_.name -like "*x86_64*.7z" -and $_.name -notlike "*dev*" } | Select-Object -First 1
+                if ($asset) {
+                    $downloadUrl = $asset.browser_download_url
+                    $fileName = $asset.name
+
+                    Write-Host "Downloading $fileName..." -ForegroundColor Gray
+                    Invoke-WebRequest -Uri $downloadUrl -OutFile $fileName -ErrorAction Stop
+
+                    Write-Host "Extracting mpv.exe..." -ForegroundColor Gray
+                    # Use 7zip if available, or fallback to native tar (modern Windows 11 builds support 7z natively)
+                    if (Get-Command "7z" -ErrorAction SilentlyContinue) {
+                        & 7z e $fileName "mpv.exe" -y | Out-Null
+                    } else {
+                        tar -xf $fileName --wildcards "*mpv.exe" -C .
+                    }
+
+                    Remove-Item -Path $fileName -Force -ErrorAction SilentlyContinue
+
+                    if (Test-Path "mpv.exe") {
+                        Write-Host "[OK] MPV has been successfully bootstrapped locally." -ForegroundColor Green
+                    } else {
+                        # Find and move nested mpv.exe to root if needed
+                        $nestedMpv = Get-ChildItem -Path . -Filter "mpv.exe" -Recurse | Select-Object -First 1
+                        if ($nestedMpv) {
+                            Move-Item -Path $nestedMpv.FullName -Destination "." -Force
+                            Write-Host "[OK] MPV has been successfully bootstrapped locally (nested fallback)." -ForegroundColor Green
+                        } else {
+                            throw "Could not find extracted mpv.exe"
+                        }
+                    }
+                } else {
+                    throw "No suitable x86_64 asset found in latest release."
+                }
+            } catch {
+                Write-Host "[WARNING] Automated MPV download fallback failed: $_" -ForegroundColor Yellow
+                Write-Host "Please download MPV manually from: https://mpv.io/" -ForegroundColor Yellow
+                Write-Host "Extract and place 'mpv.exe' directly inside: $Home\PlexRTXPlayer" -ForegroundColor Yellow
+                Write-Host ""
+            }
+        }
+    }
+}
+}
+
+# 6. Launch the application
 Write-Host ""
 Write-Host "===================================================" -ForegroundColor Green
 Write-Host "   Launching Plex RTX Player!" -ForegroundColor Green

@@ -21,9 +21,60 @@ class PlexRTXPlayer:
         :param display_width: Width of the display target (default 3840 for 4K).
         :param display_height: Height of the display target (default 2160 for 4K).
         """
-        self.mpv_path = mpv_path
         self.display_width = display_width
         self.display_height = display_height
+        self.mpv_path = self._resolve_mpv_path(mpv_path)
+
+    def _resolve_mpv_path(self, mpv_path):
+        """
+        Locates mpv.exe automatically across common Windows paths if not found on the default PATH.
+        """
+        # If user specified a custom path (e.g., in environment variables) and it exists, use it.
+        if mpv_path and mpv_path != "mpv.exe":
+            if os.path.exists(mpv_path):
+                return mpv_path
+
+        # 1. Check if mpv.exe is in the system PATH
+        try:
+            import shutil
+            found_path = shutil.who("mpv.exe") or shutil.who("mpv")
+            if found_path:
+                logger.info(f"Automatically detected mpv in system PATH: {found_path}")
+                return found_path
+        except Exception:
+            pass
+
+        # 2. Check local running directory
+        local_dir = os.path.dirname(os.path.abspath(__file__))
+        local_mpv = os.path.join(local_dir, "mpv.exe")
+        if os.path.exists(local_mpv):
+            logger.info(f"Automatically detected mpv in local folder: {local_mpv}")
+            return local_mpv
+
+        # 3. Check current working directory
+        cwd_mpv = os.path.join(os.getcwd(), "mpv.exe")
+        if os.path.exists(cwd_mpv):
+            logger.info(f"Automatically detected mpv in current working directory: {cwd_mpv}")
+            return cwd_mpv
+
+        # 4. Check common Windows standard installation folders
+        common_paths = [
+            r"C:\Program Files\mpv\mpv.exe",
+            r"C:\Program Files (x86)\mpv\mpv.exe",
+            r"C:\Program Files\mpv-player\mpv.exe",
+            r"C:\Program Files (x86)\mpv-player\mpv.exe",
+            r"C:\mpv\mpv.exe",
+            os.path.expandvars(r"%LOCALAPPDATA%\Programs\mpv\mpv.exe"),
+            os.path.expandvars(r"%LOCALAPPDATA%\Programs\mpv-player\mpv.exe"),
+        ]
+
+        for path in common_paths:
+            if os.path.exists(path):
+                logger.info(f"Automatically detected mpv in standard path: {path}")
+                return path
+
+        # Fallback to the original value if not found (letting standard execution report the error)
+        return mpv_path
 
     def calculate_scale_factor(self, video_width, video_height):
         """
