@@ -8,12 +8,14 @@ The player renders content through a native Windows 11 Direct3D 11 backend using
 
 ## ⚡ Quick Start (No Repository Download Required)
 
-To run the player instantly without downloading or cloning this repository, you can use the **Single-Click Windows Launcher**:
+To run the player instantly without downloading or cloning this repository, you can run the **Single-Command PowerShell Launcher**:
 
 1. Ensure **Python 3** is installed on your Windows 11 machine. (If not, download it from [python.org](https://www.python.org/) and remember to check **"Add python.exe to PATH"** during installation).
-2. Download the batch script directly:
-   👉 **[Click here to download launch_plex_rtx.bat](https://raw.githubusercontent.com/user/Custom-Plex-Player-Script/main/launch_plex_rtx.bat)** *(or copy-paste its content to a file named `launch_plex_rtx.bat`)*.
-3. Double-click **`launch_plex_rtx.bat`** to run. It will automatically download the player modules, install required dependencies, and launch the player!
+2. Open **PowerShell** and run the following command to download and launch the player automatically:
+   ```powershell
+   Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]::Tls12; iex ((New-Object System.Net.WebClient).DownloadString('https://raw.githubusercontent.com/user/Custom-Plex-Player-Script/main/launch_plex_rtx.ps1'))
+   ```
+   *Alternatively, you can manually download and run **`launch_plex_rtx.ps1`**.*
 
 ---
 
@@ -30,7 +32,7 @@ To enable NVIDIA's RTX enhancements, ensure your system meets the following spec
 6. **MPV Player:**
    - Ensure a modern build of `mpv.exe` (minimum version `0.39` for VSR, `0.40+` for RTX HDR) is installed on your system.
    - You can download nightly builds from [mpv.io](https://mpv.io/) or [shinchiro's builds](https://sourceforge.net/projects/mpv-player-windows/files/64bit/).
-   - Add `mpv.exe` to your Windows System PATH, or specify its exact path using the environment variable: `set MPV_PATH=C:\path\to\mpv.exe` before launching.
+   - Add `mpv.exe` to your Windows System PATH, or specify its exact path using the environment variable: `$env:MPV_PATH="C:\path\to\mpv.exe"` before launching.
 
 ---
 
@@ -87,9 +89,9 @@ You can customize the player dynamically using Windows environment variables:
 | `DISPLAY_WIDTH` | Target width of your RTX monitor | `3840` (4K) |
 | `DISPLAY_HEIGHT` | Target height of your RTX monitor | `2160` (4K) |
 
-For example, to run on a 1440p monitor:
-```cmd
-set DISPLAY_WIDTH=2560
-set DISPLAY_HEIGHT=1440
+For example, to run on a 1440p monitor in PowerShell:
+```powershell
+$env:DISPLAY_WIDTH="2560"
+$env:DISPLAY_HEIGHT="1440"
 python plex_rtx_gui.py
 ```
