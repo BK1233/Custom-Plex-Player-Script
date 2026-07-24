@@ -77,14 +77,14 @@ JS_INTERCEPTOR = """
 })();
 """
 
+# Store player instance globally to keep the JS API class state-free and completely prevent .NET interop recursion crashes
+_GLOBAL_PLAYER = None
+
 class PlexRTXAPI:
-    def __init__(self, player):
-        self.player = player
-        self.window = None
-
-    def set_window(self, window):
-        self.window = window
-
+    """
+    Exposed JS API for pywebview. Keeps no instance state or attributes to prevent WPF/WinForms
+    reflection/accessibility recursion depth exceeded errors under Windows.
+    """
     def on_play_intercepted(self, data):
         """
         Invoked from Javascript when a video starts playing in the WebView.
@@ -109,6 +109,7 @@ class PlexRTXAPI:
         return {"status": "processing"}
 
     def _resolve_and_launch(self, video_src, url, hash_val, token):
+        global _GLOBAL_PLAYER
         try:
             stream_url = None
             width = None
@@ -165,12 +166,15 @@ class PlexRTXAPI:
                     return
 
             # Launch MPV with Nvidia RTX VSR and RTX HDR
-            self.player.launch_mpv(
-                video_url=stream_url,
-                video_width=width,
-                video_height=height,
-                is_sdr=is_sdr
-            )
+            if _GLOBAL_PLAYER:
+                _GLOBAL_PLAYER.launch_mpv(
+                    video_url=stream_url,
+                    video_width=width,
+                    video_height=height,
+                    is_sdr=is_sdr
+                )
+            else:
+                logger.error("Global player instance is not initialized.")
 
         except Exception as e:
             logger.error(f"Error resolving or launching player: {e}", exc_info=True)
@@ -214,18 +218,19 @@ class PlexRTXAPI:
 
 def on_loaded(window):
     """
-    Called when the DOM is ready. Inject our javascript interceptor immediately.
+    Called when the DOM is ready. Inject our javascript interceptor immediately using evaluate_js.
     """
     logger.info("DOM loaded in WebView. Injecting RTX Interceptor...")
-    window.run_js(JS_INTERCEPTOR)
+    window.evaluate_js(JS_INTERCEPTOR)
 
 def main():
+    global _GLOBAL_PLAYER
     display_w = int(os.environ.get("DISPLAY_WIDTH", 3840))
     display_h = int(os.environ.get("DISPLAY_HEIGHT", 2160))
     mpv_executable = os.environ.get("MPV_PATH", "mpv.exe")
 
-    player = PlexRTXPlayer(mpv_path=mpv_executable, display_width=display_w, display_height=display_h)
-    api = PlexRTXAPI(player)
+    _GLOBAL_PLAYER = PlexRTXPlayer(mpv_path=mpv_executable, display_width=display_w, display_height=display_h)
+    api = PlexRTXAPI()
 
     logger.info("Starting Custom Plex Player Webview on Windows 11...")
     logger.info(f"Target Display Resolution: {display_w}x{display_h}")
@@ -240,7 +245,6 @@ def main():
         text_select=True,
         confirm_close=True
     )
-    api.set_window(window)
 
     # Subscribe to loaded events to ensure JS is injected whenever a page/SPA context loads
     window.events.loaded += lambda: on_loaded(window)

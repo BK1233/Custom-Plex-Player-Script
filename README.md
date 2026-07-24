@@ -63,7 +63,7 @@ cd Custom-Plex-Player-Script
 
 ### 2. Install Python dependencies
 ```bash
-pip install pywebview plexapi requests python-mpv
+pip install pywebview plexapi requests
 ```
 
 ### 3. Run the player

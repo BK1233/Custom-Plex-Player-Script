@@ -67,9 +67,9 @@ try {
 Write-Host "[OK] Player scripts downloaded successfully." -ForegroundColor Green
 
 # 4. Install dependencies
-Write-Host "Installing required python packages (pywebview, plexapi, requests, python-mpv)..." -ForegroundColor Yellow
+Write-Host "Installing required python packages (pywebview, plexapi, requests)..." -ForegroundColor Yellow
 & python -m pip install --upgrade pip | Out-Null
-& python -m pip install pywebview plexapi requests python-mpv
+& python -m pip install pywebview plexapi requests
 
 if ($LastExitCode -ne 0) {
     Write-Host "[ERROR] Pip dependency installation failed." -ForegroundColor Red
