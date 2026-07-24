@@ -167,7 +167,6 @@ if (-not $mpvInCwd -and -not $mpvInPath) {
         }
     }
 }
-}
 
 # 6. Launch the application
 Write-Host ""
