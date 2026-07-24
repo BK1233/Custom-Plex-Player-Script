@@ -13,7 +13,7 @@ To run the player instantly without downloading or cloning this repository, you 
 1. Ensure **Python 3** is installed on your Windows 11 machine. (If not, download it from [python.org](https://www.python.org/) and remember to check **"Add python.exe to PATH"** during installation).
 2. Open **PowerShell** and run the following command to download and launch the player automatically:
    ```powershell
-   Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]::Tls12; iex ((New-Object System.Net.WebClient).DownloadString('https://raw.githubusercontent.com/user/Custom-Plex-Player-Script/main/launch_plex_rtx.ps1'))
+   Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]::Tls12; iex ((New-Object System.Net.WebClient).DownloadString('https://raw.githubusercontent.com/BK1233/Custom-Plex-Player-Script/main/launch_plex_rtx.ps1'))
    ```
    *Alternatively, you can manually download and run **`launch_plex_rtx.ps1`**.*
 
@@ -57,7 +57,7 @@ If you prefer to run the codebase manually or customize the player:
 
 ### 1. Clone the repository
 ```bash
-git clone https://github.com/user/Custom-Plex-Player-Script.git
+git clone https://github.com/BK1233/Custom-Plex-Player-Script.git
 cd Custom-Plex-Player-Script
 ```
 

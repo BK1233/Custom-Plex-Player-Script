@@ -32,7 +32,7 @@ Set-Location -Path $runDir
 
 # 3. Download the latest scripts from GitHub
 Write-Host "Downloading latest player scripts from GitHub..." -ForegroundColor Yellow
-$repoRawUrl = "https://raw.githubusercontent.com/user/Custom-Plex-Player-Script/main"
+$repoRawUrl = "https://raw.githubusercontent.com/BK1233/Custom-Plex-Player-Script/main"
 
 # Download player.py
 Write-Host "Fetching plex_rtx_player.py..." -ForegroundColor Gray
@@ -41,7 +41,7 @@ try {
 } catch {
     Write-Host "[WARNING] Failed to download from main branch. Trying implementation branch fallback..." -ForegroundColor Yellow
     try {
-        Invoke-WebRequest -Uri "https://raw.githubusercontent.com/user/Custom-Plex-Player-Script/rtx-plex-player-implementation/plex_rtx_player.py" -OutFile "plex_rtx_player.py" -ErrorAction Stop
+        Invoke-WebRequest -Uri "https://raw.githubusercontent.com/BK1233/Custom-Plex-Player-Script/rtx-plex-player-implementation/plex_rtx_player.py" -OutFile "plex_rtx_player.py" -ErrorAction Stop
     } catch {
         Write-Host "[ERROR] Failed to fetch plex_rtx_player.py. Please verify your internet connection." -ForegroundColor Red
         Read-Host "Press Enter to exit..."
@@ -56,7 +56,7 @@ try {
 } catch {
     Write-Host "[WARNING] Failed to download from main branch. Trying implementation branch fallback..." -ForegroundColor Yellow
     try {
-        Invoke-WebRequest -Uri "https://raw.githubusercontent.com/user/Custom-Plex-Player-Script/rtx-plex-player-implementation/plex_rtx_gui.py" -OutFile "plex_rtx_gui.py" -ErrorAction Stop
+        Invoke-WebRequest -Uri "https://raw.githubusercontent.com/BK1233/Custom-Plex-Player-Script/rtx-plex-player-implementation/plex_rtx_gui.py" -OutFile "plex_rtx_gui.py" -ErrorAction Stop
     } catch {
         Write-Host "[ERROR] Failed to fetch plex_rtx_gui.py. Please verify your internet connection." -ForegroundColor Red
         Read-Host "Press Enter to exit..."
