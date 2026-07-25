@@ -65,12 +65,33 @@ JS_INTERCEPTOR = """
             console.error("Plex RTX Interceptor: pywebview API is not available.");
         }
 
-        // Instantly navigate back in history to dismiss the blank/white player interface
-        // and return the user to the beautiful details/browse view.
+        // Asynchronously dismiss the player overlay to return the user to their library view
         setTimeout(function() {
-            console.log("Plex RTX Interceptor: Dismissing empty player overlay via history back.");
-            window.history.back();
-        }, 100);
+            console.log("Plex RTX Interceptor: Dismissing empty player overlay...");
+
+            // 1. Try to click the Plex Web player's native Back/Close button
+            const closeBtn = document.querySelector('button[aria-label="Back"]') ||
+                             document.querySelector('[class*="PlayerHeader-back"]') ||
+                             document.querySelector('[class*="player-back"]') ||
+                             document.querySelector('[class*="CloseButton"]') ||
+                             document.querySelector('[class*="close-button"]') ||
+                             document.querySelector('[class*="close"]');
+
+            if (closeBtn) {
+                console.log("Plex RTX Interceptor: Found and clicking native close button:", closeBtn);
+                closeBtn.click();
+            } else {
+                // 2. Fallback: Force Plex's SPA router to return to the previous details/browse hash
+                if (hash && hash !== window.location.hash) {
+                    console.log("Plex RTX Interceptor: Falling back to routing hash:", hash);
+                    window.location.hash = hash;
+                } else {
+                    // 3. Fallback: History back
+                    console.log("Plex RTX Interceptor: Falling back to window.history.back()");
+                    window.history.back();
+                }
+            }
+        }, 150);
 
         return Promise.resolve();
     };
