@@ -184,8 +184,8 @@ class PlexRTXPlayer:
 
         resolved_mpv = args[0]
         try:
-            # Launch without blocking the main thread
-            process = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            # Launch without blocking the main thread and avoid pipe buffer deadlocks
+            process = subprocess.Popen(args, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             return process, info
         except FileNotFoundError:
             logger.error(f"Could not find MPV at '{resolved_mpv}'. Please ensure 'mpv.exe' is placed in your C:\\Users\\<username>\\PlexRTXPlayer folder or added to your system PATH.")

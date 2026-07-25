@@ -35,15 +35,8 @@ JS_INTERCEPTOR = """
         const src = video.src || "";
         console.log("Plex RTX Interceptor: Captured video.play() for source:", src);
 
-        // Instantly pause and hide the native HTML5 player
+        // Instantly pause the native HTML5 player to prevent any local playback or audio
         video.pause();
-        video.style.display = 'none';
-
-        // Hide standard Plex player controls if they appear to prevent overlay clutter
-        const playerContainers = document.querySelectorAll('[class*="PlayerContainer"], [class*="VideoPlayer"]');
-        playerContainers.forEach(container => {
-            container.style.visibility = 'hidden';
-        });
 
         // Gather Plex Web state information
         const url = window.location.href;
@@ -71,6 +64,13 @@ JS_INTERCEPTOR = """
         } else {
             console.error("Plex RTX Interceptor: pywebview API is not available.");
         }
+
+        // Instantly navigate back in history to dismiss the blank/white player interface
+        // and return the user to the beautiful details/browse view.
+        setTimeout(function() {
+            console.log("Plex RTX Interceptor: Dismissing empty player overlay via history back.");
+            window.history.back();
+        }, 100);
 
         return Promise.resolve();
     };
