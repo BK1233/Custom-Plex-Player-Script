@@ -23,7 +23,7 @@ class PlexRTXPlayer:
         """
         self.display_width = display_width
         self.display_height = display_height
-        self.mpv_path = self._resolve_mpv_path(mpv_path)
+        self.configured_mpv_path = mpv_path
 
     def _resolve_mpv_path(self, mpv_path):
         """
@@ -57,21 +57,36 @@ class PlexRTXPlayer:
             logger.info(f"Automatically detected mpv in current working directory: {cwd_mpv}")
             return cwd_mpv
 
-        # 4. Check common Windows standard installation folders
-        common_paths = [
-            r"C:\Program Files\mpv\mpv.exe",
-            r"C:\Program Files (x86)\mpv\mpv.exe",
-            r"C:\Program Files\mpv-player\mpv.exe",
-            r"C:\Program Files (x86)\mpv-player\mpv.exe",
-            r"C:\mpv\mpv.exe",
-            os.path.expandvars(r"%LOCALAPPDATA%\Programs\mpv\mpv.exe"),
-            os.path.expandvars(r"%LOCALAPPDATA%\Programs\mpv-player\mpv.exe"),
+        # 4. Check standard system app execution aliases (where winget and modern apps register shims)
+        app_aliases = [
+            os.path.expandvars(r"%LOCALAPPDATA%\Microsoft\WindowsApps\mpv.exe"),
+            r"C:\mpv\mpv.exe"
         ]
-
-        for path in common_paths:
+        for path in app_aliases:
             if os.path.exists(path):
-                logger.info(f"Automatically detected mpv in standard path: {path}")
+                logger.info(f"Automatically detected mpv in WindowsApps/alias: {path}")
                 return path
+
+        # 5. Robust dynamic scanner for any folder containing "mpv" under standard directories
+        search_roots = [
+            r"C:\Program Files",
+            r"C:\Program Files (x86)",
+            os.path.expandvars(r"%LOCALAPPDATA%\Programs"),
+            os.path.expandvars(r"%APPDATA%")
+        ]
+        for root in search_roots:
+            if os.path.exists(root):
+                try:
+                    for folder_name in os.listdir(root):
+                        if "mpv" in folder_name.lower():
+                            subfolder = os.path.join(root, folder_name)
+                            if os.path.isdir(subfolder):
+                                candidate = os.path.join(subfolder, "mpv.exe")
+                                if os.path.exists(candidate):
+                                    logger.info(f"Automatically scanned and found mpv.exe: {candidate}")
+                                    return candidate
+                except Exception:
+                    pass
 
         # Fallback to the original value if not found (letting standard execution report the error)
         return mpv_path
@@ -119,9 +134,10 @@ class PlexRTXPlayer:
         """
         Build complete command line arguments for running MPV with RTX enabled.
         """
+        resolved_mpv = self._resolve_mpv_path(self.configured_mpv_path)
         # Base requirements for RTX enhancements on Windows 11
         args = [
-            self.mpv_path,
+            resolved_mpv,
             "--vo=gpu-next",          # Or gpu, gpu-next is recommended for modern features
             "--gpu-api=d3d11",        # Required for Nvidia d3d11vpp
             "--hwdec=d3d11va",        # Required for direct hardware decoding with d3d11vpp
@@ -166,12 +182,13 @@ class PlexRTXPlayer:
         logger.info(f"Launching MPV with RTX options: {info}")
         logger.info(f"Command line: {' '.join(args)}")
 
+        resolved_mpv = args[0]
         try:
             # Launch without blocking the main thread
             process = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
             return process, info
         except FileNotFoundError:
-            logger.error(f"Could not find MPV at '{self.mpv_path}'. Please ensure it is installed and in your PATH.")
+            logger.error(f"Could not find MPV at '{resolved_mpv}'. Please ensure 'mpv.exe' is placed in your C:\\Users\\<username>\\PlexRTXPlayer folder or added to your system PATH.")
             raise
         except Exception as e:
             logger.error(f"Error launching MPV: {e}")
