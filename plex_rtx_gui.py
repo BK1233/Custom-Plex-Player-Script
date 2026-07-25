@@ -133,24 +133,52 @@ class PlexRTXAPI:
                         plex = server_resource.connect()
                         item = plex.fetchItem(metadata_key)
 
-                        stream_url = item.getStreamURL()
-                        logger.info(f"Successfully resolved Plex direct play stream URL: {stream_url}")
+                        # Handle case where the metadata key points to a container (Show/Season) instead of a playable item
+                        from plexapi.video import Show, Season
 
-                        # Extract video characteristics for accurate RTX configuration
-                        if item.media:
-                            media = item.media[0]
-                            width = media.width
-                            height = media.height
+                        if isinstance(item, Show):
+                            logger.info("Metadata key points to a Show. Attempting to resolve onDeck or first episode...")
+                            try:
+                                on_deck = item.onDeck()
+                                if on_deck:
+                                    item = on_deck
+                                else:
+                                    episodes = item.episodes()
+                                    if episodes:
+                                        item = episodes[0]
+                            except Exception as show_err:
+                                logger.warning(f"Failed to resolve show episodes: {show_err}")
 
-                            # Check video streams for color primaries (HDR vs SDR)
-                            for part in media.parts:
-                                for stream in part.streams:
-                                    if stream.streamType == 1:  # Video Stream
-                                        color_primaries = getattr(stream, "colorPrimaries", "")
-                                        color_space = getattr(stream, "colorSpace", "")
-                                        if "2020" in color_primaries or "hdr" in color_space.lower():
-                                            is_sdr = False
-                        logger.info(f"Plex Metadata: resolution={width}x{height}, is_sdr={is_sdr}")
+                        if isinstance(item, Season):
+                            logger.info("Metadata key points to a Season. Resolving to first episode of the season...")
+                            try:
+                                episodes = item.episodes()
+                                if episodes:
+                                    item = episodes[0]
+                            except Exception as season_err:
+                                logger.warning(f"Failed to resolve season episodes: {season_err}")
+
+                        if hasattr(item, "getStreamURL"):
+                            stream_url = item.getStreamURL()
+                            logger.info(f"Successfully resolved Plex direct play stream URL: {stream_url}")
+
+                            # Extract video characteristics for accurate RTX configuration
+                            if item.media:
+                                media = item.media[0]
+                                width = media.width
+                                height = media.height
+
+                                # Check video streams for color primaries (HDR vs SDR)
+                                for part in media.parts:
+                                    for stream in part.streams:
+                                        if stream.streamType == 1:  # Video Stream
+                                            color_primaries = getattr(stream, "colorPrimaries", "")
+                                            color_space = getattr(stream, "colorSpace", "")
+                                            if "2020" in color_primaries or "hdr" in color_space.lower():
+                                                is_sdr = False
+                            logger.info(f"Plex Metadata: resolution={width}x{height}, is_sdr={is_sdr}")
+                        else:
+                            logger.error(f"Resolved object '{type(item).__name__}' is not Playable.")
                     else:
                         logger.warning(f"Could not find matching Plex Server resource for machine ID '{machine_id}'")
                 except Exception as api_err:
