@@ -301,6 +301,55 @@ class TestPlexRTXGUI(unittest.TestCase):
             is_sdr=True
         )
 
+    @patch("plex_rtx_gui.MyPlexAccount")
+    def test_resolve_and_launch_with_clicked_metadata(self, mock_my_plex_account):
+        """Test that click-intercepted metadata parameters take precedence over URL query parameters."""
+        mock_account_instance = MagicMock()
+        mock_my_plex_account.return_value = mock_account_instance
+
+        mock_resource = MagicMock()
+        mock_resource.clientIdentifier = "clicked_machine_id"
+        mock_account_instance.resources.return_value = [mock_resource]
+
+        mock_plex_server = MagicMock()
+        mock_resource.connect.return_value = mock_plex_server
+
+        mock_item = MagicMock()
+        mock_item.getStreamURL.return_value = "http://192.168.1.10:32400/clicked.mp4"
+
+        mock_media = MagicMock()
+        mock_media.width = 1920
+        mock_media.height = 1080
+        mock_item.media = [mock_media]
+
+        mock_stream = MagicMock()
+        mock_stream.streamType = 1
+        mock_stream.colorPrimaries = "bt709"
+        mock_part = MagicMock()
+        mock_part.streams = [mock_stream]
+        mock_media.parts = [mock_part]
+
+        mock_plex_server.fetchItem.return_value = mock_item
+
+        # Invoke resolve and launch with both URL and clicked parameters
+        self.api._resolve_and_launch(
+            video_src="blob:http://app.plex.tv/abcdef",
+            url="https://app.plex.tv/desktop#!/server/my_machine_id/details?key=my_metadata_key",
+            hash_val="#!/server/my_machine_id/details?key=my_metadata_key",
+            token="token123",
+            clicked_metadata_key="clicked_key",
+            clicked_machine_id="clicked_machine_id"
+        )
+
+        # Verify PlexAPI was called with the clicked key and machine ID (precedence)
+        mock_plex_server.fetchItem.assert_called_once_with("clicked_key")
+        self.player_mock.launch_mpv.assert_called_once_with(
+            video_url="http://192.168.1.10:32400/clicked.mp4",
+            video_width=1920,
+            video_height=1080,
+            is_sdr=True
+        )
+
     def test_resolve_and_launch_fallback_direct_src(self):
         """Test fallback when Plex API resolution fails/is empty but a direct play video src exists."""
         self.api._resolve_and_launch(

@@ -18,9 +18,9 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 logger = logging.getLogger("PlexRTXGUI")
 
 # JavaScript to be injected into the Plex Web SPA.
-# This script overrides the HTMLVideoElement.prototype.play method.
-# Since Plex Web is an SPA, the override persists for the whole session.
-JS_INTERCEPTOR = """
+# This script overrides the HTMLVideoElement.prototype.play method and tracks click interactions.
+# Since Plex Web is an SPA, the override and trackers persist for the whole session.
+JS_INTERCEPTOR = r"""
 (function() {
     if (window.__plex_rtx_intercepted) {
         console.log("Plex RTX Interceptor is already active.");
@@ -28,6 +28,49 @@ JS_INTERCEPTOR = """
     }
     window.__plex_rtx_intercepted = true;
     console.log("Plex RTX Interceptor successfully loaded!");
+
+    // Global state to track metadata from clicked posters/buttons on hubs/homes/decks
+    window.__last_clicked_metadata_key = null;
+    window.__last_clicked_machine_id = null;
+
+    function extractMetadataKey(str) {
+        if (!str) return null;
+        let decoded = decodeURIComponent(str);
+        let match = decoded.match(/(\/(?:library|provider)\/metadata\/[0-9a-zA-Z-]+)/) ||
+                    decoded.match(/(\/provider\/[^\/]+\/metadata\/[0-9a-zA-Z-]+)/) ||
+                    decoded.match(/key=([^&]+)/);
+        if (match) {
+            let val = match[1];
+            if (val.startsWith('/') || val.startsWith('%2F') || val.startsWith('%2f')) {
+                return decodeURIComponent(val);
+            }
+            return val;
+        }
+        return null;
+    }
+
+    // Listen to all document click events to capture target metadata keys before playback begins
+    document.addEventListener('click', function(event) {
+        let el = event.target;
+        while (el) {
+            let href = el.getAttribute('href') || "";
+            let dataKey = el.getAttribute('data-key') || "";
+
+            let key = extractMetadataKey(href) || extractMetadataKey(dataKey);
+            if (key) {
+                window.__last_clicked_metadata_key = key;
+
+                // Extract machine ID if available in routing URL
+                let mIdMatch = href.match(/\/server\/([0-9a-fA-F]+)/) || dataKey.match(/\/server\/([0-9a-fA-F]+)/);
+                if (mIdMatch) {
+                    window.__last_clicked_machine_id = mIdMatch[1];
+                }
+                console.log("Plex RTX Interceptor: Tracked click on key='" + key + "' machine='" + window.__last_clicked_machine_id + "'");
+                break;
+            }
+            el = el.parentElement;
+        }
+    }, true);
 
     const originalPlay = HTMLVideoElement.prototype.play;
     HTMLVideoElement.prototype.play = function() {
@@ -55,7 +98,9 @@ JS_INTERCEPTOR = """
                 "video_src": src,
                 "url": url,
                 "hash": hash,
-                "token": token
+                "token": token,
+                "clicked_metadata_key": window.__last_clicked_metadata_key,
+                "clicked_machine_id": window.__last_clicked_machine_id
             }).then(function(response) {
                 console.log("Plex RTX Interceptor: Python backend acknowledged:", response);
             }).catch(function(err) {
@@ -116,20 +161,22 @@ class PlexRTXAPI:
         url = data.get("url", "")
         hash_val = data.get("hash", "")
         token = data.get("token", "")
+        clicked_metadata_key = data.get("clicked_metadata_key")
+        clicked_machine_id = data.get("clicked_machine_id")
 
-        logger.info(f"Intercepted parameters: url='{url}', hash='{hash_val}', has_token={bool(token)}")
+        logger.info(f"Intercepted parameters: url='{url}', hash='{hash_val}', has_token={bool(token)}, clicked_key='{clicked_metadata_key}'")
 
         # Run stream resolving and launching in a background thread so we don't block the WebView UI
         thread = threading.Thread(
             target=self._resolve_and_launch,
-            args=(video_src, url, hash_val, token),
+            args=(video_src, url, hash_val, token, clicked_metadata_key, clicked_machine_id),
             daemon=True
         )
         thread.start()
 
         return {"status": "processing"}
 
-    def _resolve_and_launch(self, video_src, url, hash_val, token):
+    def _resolve_and_launch(self, video_src, url, hash_val, token, clicked_metadata_key=None, clicked_machine_id=None):
         global _GLOBAL_PLAYER
         try:
             stream_url = None
@@ -137,8 +184,14 @@ class PlexRTXAPI:
             height = None
             is_sdr = True
 
-            # Attempt 1: Resolve stream URL using Plex API if token and details exist in URL
-            machine_id, metadata_key = self._parse_plex_url(url, hash_val)
+            # Extract machine ID and metadata key. Prioritize click tracker results before URL hash fallbacks.
+            metadata_key = clicked_metadata_key
+            machine_id = clicked_machine_id
+
+            if not metadata_key or not machine_id:
+                machine_id, metadata_key = self._parse_plex_url(url, hash_val)
+
+            logger.info(f"Resolving stream for machine_id='{machine_id}', metadata_key='{metadata_key}'...")
 
             if token and machine_id and metadata_key:
                 logger.info(f"Connecting to Plex.tv to resolve machine_id='{machine_id}' and metadata_key='{metadata_key}'...")
